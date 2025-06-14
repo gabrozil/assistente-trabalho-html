@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente de Trabalho de Compensação</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+        :root {
+            --primary-gradient: linear-gradient(90deg, #4f46e5, #c026d3);
+            --secondary-gradient: linear-gradient(90deg, #10b981, #3b82f6);
+            --danger-gradient: linear-gradient(90deg, #f97316, #ef4444);
+            --background-color: #111827;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --text-color: #f9fafb;
+            --text-muted-color: #9ca3af;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2em;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at 1% 1%, #4f46e530, #111827 30%), radial-gradient(circle at 99% 99%, #c026d320, #111827 40%);
+        }
+
+        .container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            width: 100%;
+            max-width: 800px;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 2em;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.2em;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        header p { margin: 0.5em 0 0; font-size: 1.1em; color: var(--text-muted-color); }
+        main { padding: 2em; }
+        .form-section { border-bottom: 1px solid var(--border-color); margin-bottom: 1.5em; padding-bottom: 1.5em; }
+        .form-section-title { font-weight: 600; font-size: 1.1em; color: var(--text-color); margin-bottom: 1em; padding-bottom: 0.5em; border-bottom: 1px solid var(--border-color); }
+        .form-group { margin-bottom: 1.5em; }
+        .form-group:last-child { margin-bottom: 0; }
+        .form-group-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5em; align-items: end; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 0.75em; color: var(--text-color); }
+        .form-group input {
+            width: 100%; padding: 14px; font-size: 1em; border: 1px solid var(--border-color);
+            border-radius: 8px; background-color: rgba(255, 255, 255, 0.05); color: var(--text-color);
+            transition: border-color 0.3s, background-color 0.3s;
+        }
+        .form-group input:focus { outline: none; border-color: #4f46e5; background-color: rgba(255, 255, 255, 0.1); }
+        .clickable-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+        .clickable-btn {
+            background-color: transparent; color: var(--text-muted-color); border: 1px solid var(--border-color);
+            padding: 8px 15px; border-radius: 20px; cursor: pointer;
+            transition: all 0.2s ease-in-out; font-weight: 500;
+             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .clickable-btn:hover { 
+            border-color: #c026d3; color: #f9fafb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .clickable-btn.active { 
+            background: var(--primary-gradient); color: white; border-color: transparent; 
+            box-shadow: 0 0 15px #c026d380;
+            transform: translateY(-2px);
+        }
+        .btn {
+            color: white; border: none; padding: 15px 20px; border-radius: 8px;
+            font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+            width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 1.5em;
+        }
+        .btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        #generate-btn { background: var(--primary-gradient); }
+        #gabarito-btn { background: var(--secondary-gradient); }
+        #generate-btn:hover, #gabarito-btn:hover { opacity: 0.9; box-shadow: 0 0 20px rgba(79, 70, 229, 0.5); }
+        .btn.error { background: var(--danger-gradient); font-size: 0.9em; }
+        .hidden { display: none; }
+        #loading-container { text-align: center; }
+        #loading-spinner {
+            border: 4px solid rgba(255,255,255,0.2); border-top: 4px solid #4f46e5; border-radius: 50%;
+            width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto;
+        }
+        #timer-container { color: var(--text-muted-color); margin-top: 0.5em; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result-section { margin-top: 2em; padding: 1.5em; border-radius: 12px; background: var(--glass-bg); border: 1px solid var(--border-color); }
+        .result-section h2 { margin-top: 0; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #activity-output {
+            white-space: pre-wrap; line-height: 1.7; background-color: rgba(0,0,0,0.2);
+            padding: 1em; border-radius: 8px; border: 1px solid var(--border-color);
+            color: var(--text-color); font-family: 'Poppins', monospace; font-size: 0.95em;
+        }
+        #gabarito-output {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5em;
+        }
+        .gabarito-item {
+            background-color: rgba(30, 41, 59, 0.5); 
+            padding: 1.5em; 
+            border-radius: 12px;
+            border-top: 4px solid;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+        .gabarito-item:hover {
+             transform: translateY(-3px);
+             box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+        }
+        .gabarito-item.dissertativa { border-color: #3b82f6; }
+        .gabarito-item.multipla-escolha { border-color: #10b981; }
+        .gabarito-item p { margin: 0; }
+        .gabarito-item .gabarito-question { 
+            font-weight: 700; 
+            font-size: 1.4em; 
+            color: var(--text-color); 
+            margin-bottom: 1em;
+        }
+        .gabarito-item .gabarito-answer { 
+            font-size: 1em; 
+            color: var(--text-muted-color); 
+            line-height: 1.6;
+            text-align: left;
+        }
+        .button-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1.5em; }
+        .button-group .btn { flex-grow: 1; background: var(--glass-bg); border: 1px solid var(--border-color); box-shadow: none; }
+        .button-group .btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); box-shadow: none; }
+
+        /* Modal de Alerta */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--background-color);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content h3 {
+            color: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .modal-content p {
+            color: var(--text-color);
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .modal-button {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-button:hover {
+            opacity: 0.9;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Assistente de Trabalho</h1>
+            <p>Olá, Prof! Preencha os dados e gere o trabalho.</p>
+        </header>
+        <main>
+            <form id="activity-form">
+                <div class="form-section">
+                    <p class="form-section-title">Dados para o Cabeçalho</p>
+                    <div class="form-group-grid">
+                        <div class="form-group"><input type="text" id="school-name" placeholder="Nome da Escola"></div>
+                        <div class="form-group"><input type="text" id="prof-name" placeholder="Nome do Professor"></div>
+                        <div class="form-group"><input type="text" id="student-name" placeholder="Nome do Aluno"></div>
+                        <div class="form-group"><input type="text" id="student-series" placeholder="Ano/Série"></div>
+                        <div class="form-group">
+                             <label for="test-value">Valor da Prova</label>
+                             <input type="text" id="test-value" value="10.0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <p class="form-section-title">Dados do Conteúdo</p>
+                    <div class="form-group">
+                        <label>Matéria</label>
+                        <div class="clickable-buttons" id="subject-buttons-container"></div>
+                    </div>
+                     <div class="form-group">
+                        <label>Nível de Ensino</label>
+                        <div class="clickable-buttons" id="grade-level-buttons-container"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Estilo de Perguntas</label>
+                        <div class="clickable-buttons" id="question-style-buttons-container"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Nível de Dificuldade</label>
+                        <div class="clickable-buttons" id="difficulty-buttons-container"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="topic">Tema da Aula para Recuperação</label>
+                        <input type="text" id="topic" placeholder="Selecione a matéria e dificuldade" required>
+                    </div>
+                </div>
+
+                <button type="button" id="generate-btn" class="btn">✨ Gerar Trabalho</button>
+            </form>
+            
+            <div id="loading-container" class="hidden">
+                 <div id="loading-spinner"></div>
+                 <div id="timer-container">Tempo decorrido: <span id="timer">0</span>s</div>
+            </div>
+            
+            <div id="result-container" class="result-section hidden">
+                <h2>Trabalho Gerado</h2>
+                <pre id="activity-output"></pre>
+                <div class="button-group">
+                    <button type="button" id="copy-btn" class="btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3z"/></svg>
+                        Copiar Texto
+                    </button>
+                    <button type="button" id="pdf-btn" class="btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-file-text"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path><path d="M9 10h6"></path><path d="M9 14h6"></path></svg>
+                        Exportar para PDF
+                    </button>
+                    <button type="button" id="word-btn" class="btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icon-tabler-file-type-doc"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M14 3v4a1 1 0 0 0 1 1h4"></path><path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-11a2 2 0 0 1 -2 -2"></path><path d="M8 12a1 1 0 0 0 1 1h1.5a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-1.5a1 1 0 0 0 -1 1v1v2a1 1 0 0 0 1 1h1.5a1 1 0 0 0 1 -1v-1"></path><path d="M15 16h2a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-2v3z"></path></svg>
+                        Exportar para Word
+                    </button>
+                </div>
+                 <button type="button" id="gabarito-btn" class="btn hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-key-fill" viewBox="0 0 16 16"><path d="M3.5 11.5a3.5 3.5 0 1 1 3.163-5H14L15.5 8 14 9.5l-1-1-1 1-1-1-1 1-1-1-1 1H6.663a3.5 3.5 0 0 1-3.163 2zM2.5 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
+                    Visualizar Gabarito
+                </button>
+            </div>
+            
+            <div id="gabarito-container" class="result-section hidden">
+                <h2>Gabarito</h2>
+                <div id="gabarito-output"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="modal">
+        <div class="modal-content">
+            <h3>Ops! Algo deu errado.</h3>
+            <p id="alert-message"></p>
+            <button class="modal-button" onclick="document.getElementById('alert-modal').style.display='none'">Entendi</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedSubject = '';
+        let selectedGradeLevel = '';
+        let selectedQuestionStyle = 'Alternativas';
+        let selectedDifficulty = 'Normal';
+        let generatedGabarito = '';
+        const { jsPDF } = window.jspdf;
+        // Base64 logo for SP Government (small size to keep code cleaner for this example)
+        const logoSP = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAACpCAMAAACf0nJ4AAAAZlBMVEX///8AAADAwMBra2vPz8/BwcHBwcGjo6O4uLjS0tLJycno6OiwsLCnp6c3NzdjY2OmpqaioqLT09OcnJycnJzAwMDf398bGxsyMjLa2tq0tLSFhYWAQMxIAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAHj0lEQVR4nO2d63aqMBCGEZFRULUARUVrrf//n2C3tQ3BAgnP2dT3fbczmMm8mbEkAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgKCJds9OYp/ey/9tObezLdhq/1vP+fXsv+3Uc/P+4t5P9/a+jadbVAY/dtvV8u/Z83P3/9L6L+yFskZ/4i/1p/H4Wn49rhy2/6zYj5K6F/3U/aev2+WpuRkgr/+q9t5k/n4/TdQPy/Spv5L9c1+3zVV4GSCr/+l2iH7e6HbZ2A1K2/tU7bPFy/b7N1xFIxv/qPTZ/3u522BqKkJ7/1btk/Lzd7bA1HCHB/6p2C/e7HbZGKyFYP3Wb1b8/H252WBoqkND4q3fI+PnDdbfA1nCEBMan3SXu1vT7BYYmJGT81buE/X7c6OBTpCkEZP7Vu8QzfnP5oFOkKcIRcbN6FUl8frnBo0hThCPiZ/Umkf59vcGjSFMEM+Jl9S6T7s/rDR5GmkDsEFuvNxrJfr3Z40jTCD2h6XqHkf98scHjSFMIHWLatfX+e2D014f3y+b8h8xP4v9k61GGP/4n+/Y0YgFee7+w2rN8f/PZH9COp/APLftzhnjfyzknxG6QW4K++zWGOO/zOYnQmsoXmD77daaM/7/JnuQ0AiqB7h1j/X5+yfZo4RC/IPNN9tCjf8/knyWkIjCD2y/1Rrj/5/MHkVoQ2EG9N9t1s/5/0eyL2GMwDfsV18+4/832Y8lDOGL9mtv/pr/X2SfQBiFv+6fK+f9n2QfIozCX23Xk/K+n+SfYwwReHv/rZXy/s/yk0Jjx/Xm/v+k1lZ5zfcvMgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADibv4Ll+xIq73o/HAAAAAASUVORK5CYII=';
+        
+        const domElements = {
+            subjectButtons: document.getElementById('subject-buttons-container'),
+            gradeLevelButtons: document.getElementById('grade-level-buttons-container'),
+            questionStyleButtons: document.getElementById('question-style-buttons-container'),
+            difficultyButtonsContainer: document.getElementById('difficulty-buttons-container'),
+            topicInput: document.getElementById('topic'),
+            generateBtn: document.getElementById('generate-btn'),
+            gabaritoBtn: document.getElementById('gabarito-btn'),
+            loadingContainer: document.getElementById('loading-container'),
+            timerSpan: document.getElementById('timer'),
+            resultContainer: document.getElementById('result-container'),
+            activityOutput: document.getElementById('activity-output'),
+            gabaritoContainer: document.getElementById('gabarito-container'),
+            gabaritoOutput: document.getElementById('gabarito-output'),
+            copyBtn: document.getElementById('copy-btn'),
+            pdfBtn: document.getElementById('pdf-btn'),
+            wordBtn: document.getElementById('word-btn'),
+            valueInput: document.getElementById('test-value'),
+            // Header inputs
+            schoolNameInput: document.getElementById('school-name'),
+            profNameInput: document.getElementById('prof-name'),
+            studentNameInput: document.getElementById('student-name'),
+            studentSeriesInput: document.getElementById('student-series'),
+            // Alert Modal
+            alertModal: document.getElementById('alert-modal'),
+            alertMessage: document.getElementById('alert-message')
+        };
+
+        const subjects = ['Português', 'Matemática', 'História', 'Geografia', 'Filosofia', 'Sociologia', 'Projeto de Vida', 'Biologia', 'Ciências', 'Artes', 'Inglês'];
+        const gradeLevels = ['Ensino Fundamental 1', 'Ensino Fundamental 2', 'Ensino Médio'];
+        const questionStyles = ['Alternativas', 'Misto', 'Dissertativas'];
+        const difficultyLevels = ['Fácil', 'Normal', 'Médio', 'Difícil'];
+
+        const exampleTopics = {
+            'História-Normal': 'Revolução Francesa',
+            'História-Difícil': 'Crise do Império Romano e as Invasões Bárbaras',
+            'Matemática-Fácil': 'Operações com Frações',
+            'Matemática-Médio': 'Teorema de Pitágoras',
+            'Matemática-Difícil': 'Análise Combinatória e Probabilidade',
+            'Ciências-Ensino Fundamental 1': 'O Ciclo da Água na Natureza',
+            'Biologia-Ensino Médio': 'Processo de Síntese Proteica e o Código Genético',
+            'Geografia-Normal': 'Domínios Morfoclimáticos do Brasil',
+            'Filosofia-Difícil': 'O Mito da Caverna de Platão e suas implicações',
+            'Default': 'Selecione a matéria e a dificuldade para ver um exemplo'
+        };
+
+        // Function to show custom alert modal
+        function showAlert(message) {
+            domElements.alertMessage.textContent = message;
+            domElements.alertModal.style.display = 'flex'; // Use flex to center
+        }
+
+        function createButtons(container, items, dataAttribute, defaultActive) {
+            items.forEach(item => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'clickable-btn';
+                button.textContent = item;
+                button.dataset[dataAttribute] = item;
+                if (item === defaultActive) { 
+                    button.classList.add('active');
+                }
+                container.appendChild(button);
+            });
+        }
+        
+        // Initialize buttons
+        createButtons(domElements.subjectButtons, subjects, 'subject');
+        createButtons(domElements.gradeLevelButtons, gradeLevels, 'grade');
+        createButtons(domElements.questionStyleButtons, questionStyles, 'style', 'Alternativas');
+        createButtons(domElements.difficultyButtonsContainer, difficultyLevels, 'difficulty', 'Normal');
+        
+        // Set specific placeholders for header inputs
+        domElements.schoolNameInput.placeholder = "Ex: E.E. Professor João da Silva";
+        domElements.profNameInput.placeholder = "Ex: Prof. Ana Paula";
+        domElements.studentNameInput.placeholder = "Ex: Maria Oliveira";
+        domElements.studentSeriesInput.placeholder = "Ex: 8º Ano A";
+
+        function updateTopicPlaceholder() {
+            let key = `${selectedSubject}-${selectedDifficulty}`;
+            let placeholder = exampleTopics[key];
+            
+            if (!placeholder) {
+                key = `${selectedSubject}-${selectedGradeLevel}`;
+                placeholder = exampleTopics[key];
+            }
+            if(!placeholder && selectedSubject) {
+                placeholder = exampleTopics[selectedSubject] || `Ex: Tema de ${selectedSubject}`;
+            }
+
+            domElements.topicInput.placeholder = placeholder || exampleTopics['Default'];
+        }
+
+        function handleButtonClick(container, target, selectionVarSetter) {
+            if (target.classList.contains('clickable-btn')) {
+                container.querySelectorAll('.clickable-btn').forEach(btn => btn.classList.remove('active'));
+                target.classList.add('active');
+                selectionVarSetter(target.dataset[Object.keys(target.dataset)[0]]);
+                updateTopicPlaceholder();
+            }
+        }
+
+        domElements.subjectButtons.addEventListener('click', (e) => handleButtonClick(domElements.subjectButtons, e.target, (val) => selectedSubject = val));
+        domElements.gradeLevelButtons.addEventListener('click', (e) => handleButtonClick(domElements.gradeLevelButtons, e.target, (val) => selectedGradeLevel = val));
+        domElements.questionStyleButtons.addEventListener('click', (e) => handleButtonClick(domElements.questionStyleButtons, e.target, (val) => selectedQuestionStyle = val));
+        domElements.difficultyButtonsContainer.addEventListener('click', (e) => handleButtonClick(domElements.difficultyButtonsContainer, e.target, (val) => selectedDifficulty = val));
+
+
+        async function callGemini(prompt) {
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+            const apiKey = "AIzaSyADJWdJYJL-XqFjywyFSxIeE3OpKR6HIIU"; // SUA API KEY AQUI!
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Erro na API: ${response.status} - ${errorData.error.message || 'Erro desconhecido'}`);
+            }
+            const result = await response.json();
+            if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            }
+            throw new Error("Resposta da API inválida ou vazia.");
+        }
+        
+        function getPromptInstruction() {
+            const line = "__________________________________________________";
+            // Use line break for consistency, LLM interprets these as new lines.
+            const lines = `\\n${line}\\n${line}\\n${line}\\n${line}\\n${line}`;
+            switch(selectedQuestionStyle) {
+                case 'Alternativas':
+                    return '6 perguntas de múltipla escolha (com 4 alternativas cada).';
+                case 'Dissertativas':
+                    return `6 perguntas dissertativas, cada uma seguida por 5 linhas de resposta completas (exatamente como esta: ${line}).`;
+                case 'Misto':
+                default:
+                    // If Ensino Médio is selected for "Misto" style, request one ENEM-style question.
+                    const enemInstruction = (selectedGradeLevel === 'Ensino Médio') ? ' Se for Ensino Médio, 1 questão de múltipla escolha deve ser estilo ENEM.' : '';
+                    return `3 perguntas dissertativas (cada uma seguida por 5 linhas de resposta completas: ${line}) e 3 perguntas de múltipla escolha.${enemInstruction}`;
+            }
+        }
+
+        domElements.generateBtn.addEventListener('click', async () => {
+            const topic = domElements.topicInput.value;
+
+            const missing = [];
+            if (!selectedSubject) missing.push('Matéria');
+            if (!selectedGradeLevel) missing.push('Nível de Ensino');
+            if (!selectedQuestionStyle) missing.push('Estilo');
+            if (!topic) missing.push('Tema');
+
+            if (missing.length > 0) {
+                const originalText = domElements.generateBtn.innerHTML;
+                domElements.generateBtn.innerHTML = `(Prof, falta: ${missing.join(', ')})`;
+                domElements.generateBtn.classList.add('error');
+                setTimeout(() => {
+                    domElements.generateBtn.innerHTML = '✨ Gerar Trabalho';
+                    domElements.generateBtn.classList.remove('error');
+                }, 3000);
+                return;
+            }
+            
+            domElements.loadingContainer.classList.remove('hidden');
+            domElements.resultContainer.classList.add('hidden');
+            domElements.gabaritoContainer.classList.add('hidden');
+            domElements.gabaritoBtn.classList.add('hidden');
+            domElements.generateBtn.disabled = true;
+            domElements.generateBtn.textContent = 'Elaborando...';
+
+            let seconds = 0;
+            const timerInterval = setInterval(() => {
+                seconds++;
+                domElements.timerSpan.textContent = seconds;
+            }, 1000);
+
+            const instruction = getPromptInstruction();
+            const prompt = `Gere um trabalho sobre "${topic}" (${selectedSubject}, ${selectedGradeLevel}) com nível de dificuldade "${selectedDifficulty}". Siga estas regras ESTRITAS:
+1. Crie ${instruction}.
+2. Para as questões de múltipla escolha, DIVERSIFIQUE as letras das respostas corretas. Não use a mesma letra como resposta mais de 2 vezes.
+3. Gere as questões primeiro.
+4. DEPOIS de TODAS as questões, insira a tag [GABARITO].
+5. Após a tag, escreva o gabarito. O gabarito DEVE começar cada resposta em uma nova linha com "Questão X: " (onde X é o número da questão). Para dissertativas, forneça uma 'Resposta Esperada'. Para múltipla escolha, a letra correta.
+6. Não use NENHUMA formatação markdown como asteriscos ou negrito. A saída deve ser texto puro.`;
+            
+            try {
+                const rawText = await callGemini(prompt);
+                const parts = rawText.split('[GABARITO]');
+                const questions = parts[0] ? parts[0].trim() : "Não foi possível gerar as questões.";
+                generatedGabarito = parts[1] ? parts[1].trim() : "Não foi possível gerar o gabarito.";
+
+                domElements.activityOutput.textContent = questions;
+                domElements.resultContainer.classList.remove('hidden');
+                domElements.gabaritoBtn.classList.remove('hidden');
+            } catch (error) {
+                console.error("Erro ao gerar trabalho:", error);
+                showAlert(`Erro ao gerar trabalho: ${error.message}. Por favor, tente novamente.`);
+            } finally {
+                clearInterval(timerInterval);
+                domElements.loadingContainer.classList.add('hidden');
+                domElements.generateBtn.disabled = false;
+                domElements.generateBtn.innerHTML = '✨ Gerar Trabalho Novamente';
+            }
+        });
+        
+        domElements.gabaritoBtn.addEventListener('click', () => {
+            if (!generatedGabarito || generatedGabarito === "Não foi possível gerar o gabarito.") {
+                showAlert("Nenhum gabarito foi gerado ou o formato está incorreto. Tente gerar o trabalho novamente.");
+                return;
+            }
+            // Split by "Questão X:" regex, ensuring we get each question
+            const respostas = generatedGabarito.split(/(?=Questão \d+:)/).filter(text => text.trim() !== '');
+
+            domElements.gabaritoOutput.innerHTML = ''; 
+
+            if (respostas.length === 0) {
+                domElements.gabaritoOutput.textContent = "Formato de gabarito não reconhecido. Certifique-se de que cada questão comece com 'Questão X:'.";
+                domElements.gabaritoContainer.classList.remove('hidden');
+                return;
+            }
+
+            respostas.forEach((resposta) => {
+                const match = resposta.match(/^(Questão \d+):\s*(.*)/s); // Improved regex to capture question number and answer
+                const numeroQuestaoTexto = match ? match[1] : `Resposta ${respostas.indexOf(resposta) + 1}`;
+                const textoResposta = match ? match[2].trim() : resposta.trim();
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'gabarito-item';
+
+                const questionP = document.createElement('p');
+                questionP.className = 'gabarito-question';
+                questionP.textContent = numeroQuestaoTexto;
+
+                const answerP = document.createElement('p');
+                answerP.className = 'gabarito-answer';
+                answerP.textContent = textoResposta;
+
+                // Heuristic to determine if it's a "dissertativa" or "multipla-escolha" based on length or specific phrases
+                if (textoResposta.length > 80 || textoResposta.toLowerCase().includes('resposta esperada') || textoResposta.toLowerCase().includes('justificativa')) {
+                    itemDiv.classList.add('dissertativa');
+                } else {
+                    itemDiv.classList.add('multipla-escolha');
+                }
+
+                itemDiv.appendChild(questionP);
+                itemDiv.appendChild(answerP);
+                domElements.gabaritoOutput.appendChild(itemDiv);
+            });
+
+            domElements.gabaritoContainer.classList.remove('hidden');
+        });
+
+        function getHeaderData() {
+            return {
+                school: domElements.schoolNameInput.value || domElements.schoolNameInput.placeholder,
+                prof: domElements.profNameInput.value || domElements.profNameInput.placeholder,
+                student: domElements.studentNameInput.value || domElements.studentNameInput.placeholder,
+                series: domElements.studentSeriesInput.value || domElements.studentSeriesInput.placeholder,
+                value: domElements.valueInput.value
+            };
+        }
+        
+        domElements.pdfBtn.addEventListener('click', () => {
+            const header = getHeaderData();
+            const doc = new jsPDF();
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 15;
+            let cursorY = 10;
+
+            try {
+                // Adjust logo size to fit header better
+                doc.addImage(logoSP, 'PNG', margin, cursorY, 25, 25); 
+            } catch(e) { console.error("Erro ao adicionar logo no PDF:", e); }
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('GOVERNO DO ESTADO DE SÃO PAULO', pageW / 2, cursorY + 5, { align: 'center' });
+            doc.text('SECRETARIA DE ESTADO DA EDUCAÇÃO', pageW / 2, cursorY + 10, { align: 'center' });
+            doc.text('DIRETORIA DE ENSINO – REGIÃO DE JALES', pageW / 2, cursorY + 15, { align: 'center' });
+            doc.setFontSize(11);
+            doc.text(header.school, pageW / 2, cursorY + 22, { align: 'center' });
+            cursorY += 30;
+
+            doc.setLineWidth(0.5);
+            doc.line(margin, cursorY, pageW - margin, cursorY);
+            cursorY += 8;
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Nome: ${header.student}__________________________________ Ano: ${header.series}_____ Data: ___/___/______`, margin, cursorY);
+            cursorY += 8;
+            doc.text(`Valor da Prova: ${header.value}`, margin, cursorY);
+            doc.text(`Professor: ${header.prof}`, pageW - margin, cursorY, { align: 'right' });
+            cursorY += 15; // Increased space after header
+
+            const textLines = domElements.activityOutput.textContent.split('\n');
+            
+            doc.setFontSize(10); // Font size for the activity content
+            textLines.forEach(line => {
+                const trimmedLine = line.trim();
+                // Check for page break BEFORE drawing the line or text
+                if (cursorY > doc.internal.pageSize.getHeight() - margin) { // Check against bottom margin
+                    doc.addPage();
+                    cursorY = margin; // Reset cursor for new page
+                }
+
+                if (trimmedLine.startsWith('___')) {
+                    // This line should represent a blank line for student answers.
+                    // Draw a full line across the page to represent the answer space.
+                    doc.setDrawColor(0); // Black color for the line
+                    doc.line(margin, cursorY - 3, pageW - margin, cursorY - 3); 
+                    cursorY += 5; // Adjust spacing for lines
+                } else {
+                    // Split text that is too long to fit on one line
+                    const splitText = doc.splitTextToSize(line, pageW - margin * 2);
+                    splitText.forEach(textLine => {
+                        if (cursorY > doc.internal.pageSize.getHeight() - margin) { // Check before adding each line of split text
+                            doc.addPage();
+                            cursorY = margin;
+                        }
+                        doc.text(textLine, margin, cursorY);
+                        cursorY += 7; // Line height
+                    });
+                }
+            });
+            
+            doc.save('trabalho_formatado.pdf');
+        });
+
+        domElements.wordBtn.addEventListener('click', () => {
+            const header = getHeaderData();
+            const headerHtml = `
+             <table style="width:100%; border-collapse: collapse;">
+                <tr>
+                    <td style="width:70px; vertical-align:middle;"><img src="${logoSP}" alt="Logo SP" style="width:70px; height:auto;"></td>
+                    <td style="text-align:center; vertical-align:middle; font-weight:bold; font-size:10pt;">
+                        GOVERNO DO ESTADO DE SÃO PAULO<br>
+                        SECRETARIA DE ESTADO DA EDUCAÇÃO<br>
+                        DIRETORIA DE ENSINO – REGIÃO DE JALES<br>
+                        <span style="font-size:12pt;">${header.school}</span>
+                    </td>
+                </tr>
+            </table>
+            <p style="border-top:1px solid black; margin: 5px 0;">&nbsp;</p>
+            <p>Nome: ${header.student}______________________________________ Ano: ${header.series}____ Data: ___/___/______</p>
+            <table style="width:100%;">
+                <tr>
+                    <td>Valor da Prova: ${header.value}</td>
+                    <td style="text-align:right;">Professor: ${header.prof}</td>
+                </tr>
+            </table>
+            <br>
+            `;
+
+            let formattedContent = domElements.activityOutput.textContent
+                .replace(/__________________________________________________/g, '<p style="border-bottom: 1px solid black; margin-top: 10px; margin-bottom: 10px;">&nbsp;</p>')
+                .replace(/\n/g, '<br>');
+            
+            const sourceHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>Trabalho</title>
+                    <style>
+                        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 1in; }
+                        p { margin: 0; padding: 2px 0; }
+                        table { width: 100%; border-collapse: collapse; font-family: 'Times New Roman', Times, serif; font-size: 12pt; }
+                    </style>
+                </head>
+                <body>${headerHtml}${formattedContent}</body>
+                </html>
+            `;
+
+            const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+            const fileDownload = document.createElement("a");
+            fileDownload.href = source;
+            fileDownload.download = 'trabalho_formatado.doc';
+            document.body.appendChild(fileDownload);
+            fileDownload.click();
+            document.body.removeChild(fileDownload);
+        });
+
+        domElements.copyBtn.addEventListener('click', () => {
+            const textarea = document.createElement('textarea');
+            textarea.value = domElements.activityOutput.textContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                domElements.copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16"><path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"/></svg> Copiado!';
+                setTimeout(() => { 
+                    domElements.copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3z"/></svg> Copiar Texto';
+                }, 2000);
+            } catch (err) { 
+                console.error('Erro ao copiar texto: ', err); 
+                showAlert('Não foi possível copiar o texto. Por favor, copie manualmente.');
+            }
+            document.body.removeChild(textarea);
+        });
+        
+        // Inicializa o placeholder
+        updateTopicPlaceholder();
+    </script>
+</body>
+</html>
